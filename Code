@@ -1,0 +1,55 @@
+import numpy as np
+import scipy.stats as sp
+import matplotlib.pyplot as plt
+from scipy.optimize import minimize_scalar
+
+def american_option_binomial(S, K, T, r, sigma, N=100, option_type="call"):
+    """Calculate American option price using the Binomial Tree model."""
+    dt = T / N
+    u = np.exp(sigma * np.sqrt(dt))
+    d = 1 / u
+    p = (np.exp(r * dt) - d) / (u - d)
+    
+    # Price tree
+    prices = np.zeros((N+1, N+1))
+    for i in range(N+1):
+        for j in range(i+1):
+            prices[j, i] = S * (u ** (i - j)) * (d ** j)
+    
+    # Option values at maturity
+    values = np.zeros((N+1, N+1))
+    if option_type == "call":
+        values[:, N] = np.maximum(prices[:, N] - K, 0)
+    else:
+        values[:, N] = np.maximum(K - prices[:, N], 0)
+    
+    # Work backwards to find option price
+    for i in range(N-1, -1, -1):
+        for j in range(i+1):
+            early_exercise = (prices[j, i] - K) if option_type == "call" else (K - prices[j, i])
+            values[j, i] = max(early_exercise, np.exp(-r * dt) * (p * values[j, i+1] + (1-p) * values[j+1, i+1]))
+    
+    return values[0, 0]
+
+def plot_american_option_price_vs_volatility():
+    """Plot American option price sensitivity to volatility changes."""
+    sigmas = np.linspace(0.1, 1.0, 50)
+    prices = [american_option_binomial(S=100, K=100, T=1, r=0.05, sigma=s) for s in sigmas]
+    
+    plt.figure(figsize=(8, 5))
+    plt.plot(sigmas, prices, label="American Call Option Price")
+    plt.xlabel("Volatility (Sigma)")
+    plt.ylabel("Option Price")
+    plt.title("American Option Price Sensitivity to Volatility")
+    plt.legend()
+    plt.show()
+
+if __name__ == '__main__':
+    S, K, T, r, sigma = 100, 100, 1, 0.05, 0.2
+    call_price = american_option_binomial(S, K, T, r, sigma, option_type="call")
+    put_price = american_option_binomial(S, K, T, r, sigma, option_type="put")
+    
+    print(f"American Call Option Price: {call_price:.2f}")
+    print(f"American Put Option Price: {put_price:.2f}")
+    
+    plot_american_option_price_vs_volatility()
