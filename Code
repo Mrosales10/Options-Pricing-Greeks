@@ -3,36 +3,54 @@ import scipy.stats as sp
 import matplotlib.pyplot as plt
 from scipy.optimize import minimize_scalar
 
+# Function to calculate the price of an American option using the Binomial Tree model
 def american_option_binomial(S, K, T, r, sigma, N=100, option_type="call"):
-    """Calculate American option price using the Binomial Tree model."""
-    dt = T / N
-    u = np.exp(sigma * np.sqrt(dt))
-    d = 1 / u
-    p = (np.exp(r * dt) - d) / (u - d)
+    """
+    Calculate the price of an American call or put option using a Binomial Tree approach.
     
-    # Price tree
+    Parameters:
+    S: Current stock price
+    K: Strike price of the option
+    T: Time to expiration (in years)
+    r: Risk-free interest rate (as a decimal)
+    sigma: Volatility of the stock (as a decimal)
+    N: Number of time steps in the binomial model
+    option_type: "call" for call option, "put" for put option
+    
+    Returns:
+    The calculated price of the American option.
+    """
+    dt = T / N  # Time step size
+    u = np.exp(sigma * np.sqrt(dt))  # Upward movement factor
+    d = 1 / u  # Downward movement factor
+    p = (np.exp(r * dt) - d) / (u - d)  # Risk-neutral probability
+    
+    # Initialize a binomial price tree
     prices = np.zeros((N+1, N+1))
     for i in range(N+1):
         for j in range(i+1):
             prices[j, i] = S * (u ** (i - j)) * (d ** j)
     
-    # Option values at maturity
+    # Initialize option values at maturity
     values = np.zeros((N+1, N+1))
     if option_type == "call":
         values[:, N] = np.maximum(prices[:, N] - K, 0)
     else:
         values[:, N] = np.maximum(K - prices[:, N], 0)
     
-    # Work backwards to find option price
+    # Work backwards through the tree to calculate option value at each node
     for i in range(N-1, -1, -1):
         for j in range(i+1):
             early_exercise = (prices[j, i] - K) if option_type == "call" else (K - prices[j, i])
             values[j, i] = max(early_exercise, np.exp(-r * dt) * (p * values[j, i+1] + (1-p) * values[j+1, i+1]))
     
-    return values[0, 0]
+    return values[0, 0]  # The price of the option at the root of the tree
 
+# Function to visualize how option price changes with volatility
 def plot_american_option_price_vs_volatility():
-    """Plot American option price sensitivity to volatility changes."""
+    """
+    Plot how the price of an American call option changes as the volatility of the underlying stock increases.
+    """
     sigmas = np.linspace(0.1, 1.0, 50)
     prices = [american_option_binomial(S=100, K=100, T=1, r=0.05, sigma=s) for s in sigmas]
     
@@ -44,12 +62,18 @@ def plot_american_option_price_vs_volatility():
     plt.legend()
     plt.show()
 
+# Main execution block
 if __name__ == '__main__':
-    S, K, T, r, sigma = 100, 100, 1, 0.05, 0.2
+    # Define basic parameters for option pricing
+    S, K, T, r, sigma = 100, 100, 1, 0.05, 0.2  # Stock price, Strike price, Time to expiration, Risk-free rate, Volatility
+    
+    # Calculate American option prices
     call_price = american_option_binomial(S, K, T, r, sigma, option_type="call")
     put_price = american_option_binomial(S, K, T, r, sigma, option_type="put")
     
+    # Print calculated option prices
     print(f"American Call Option Price: {call_price:.2f}")
     print(f"American Put Option Price: {put_price:.2f}")
     
+    # Generate and display the plot
     plot_american_option_price_vs_volatility()
